@@ -721,29 +721,45 @@ function _placeBMarkers(syms){
   const dwg=DRAWINGS[curBldg+'|'+curRoom];
   if(!dwg||!SYMBOL_COORDS[dwg]) return;
   const stage=document.getElementById('imgStage');
-  const sw=stage.offsetWidth||1;
-  const sh=stage.offsetHeight||1;
   const wrap=$('imgWrap');
+  const img=$('mainImg');
   const baseSym=s=>s.replace(/-\d$/,'');
   const symSet=new Set(syms.map(baseSym));
-  let firstM=null;
-  SYMBOL_COORDS[dwg].forEach(pt=>{
-    if(!symSet.has(baseSym(pt.s))) return;
-    const el=document.createElement('div');
-    el.className='blink-marker';
-    el.style.left=(pt.x/100*sw)+'px';
-    el.style.top=(pt.y/100*sh)+'px';
-    el.dataset.ox=pt.x;
-    el.dataset.oy=pt.y;
-    stage.appendChild(el);
-    _bMarkers.push(el);
-    if(!firstM) firstM=el;
-  });
-  if(firstM){
-    const ml=parseFloat(firstM.style.left),mt=parseFloat(firstM.style.top);
-    const rect=wrap.getBoundingClientRect();
-    wrap.scrollTo({left:ml-rect.width/2,top:mt-rect.height/2,behavior:'smooth'});
+  const matched=SYMBOL_COORDS[dwg].filter(pt=>symSet.has(baseSym(pt.s)));
+  if(!matched.length) return;
+  // 選択した器具の全マーカーが画面に収まるようズーム調整（収まらない時だけズームアウト）
+  const rect=wrap.getBoundingClientRect();
+  const cw=rect.width||wrap.clientWidth, ch=rect.height||wrap.clientHeight;
+  let minX=100,maxX=0,minY=100,maxY=0;
+  matched.forEach(p=>{if(p.x<minX)minX=p.x;if(p.x>maxX)maxX=p.x;if(p.y<minY)minY=p.y;if(p.y>maxY)maxY=p.y;});
+  const padX=Math.max(6,(maxX-minX)*0.15), padY=Math.max(6,(maxY-minY)*0.15);
+  minX=Math.max(0,minX-padX); maxX=Math.min(100,maxX+padX);
+  minY=Math.max(0,minY-padY); maxY=Math.min(100,maxY+padY);
+  const bw=maxX-minX, bh=maxY-minY;
+  const natW=img.naturalWidth||1, natH=img.naturalHeight||1;
+  const pctX=10000/bw;
+  const pctY=(ch*100/bh)*natW/natH/cw*100;
+  const fitPct=Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,Math.floor(Math.min(pctX,pctY))));
+  if(fitPct<zoomPct){
+    zoomPct=fitPct;$('zoomLabel').textContent=fitPct+'%';
+    stage.style.width=(cw*fitPct/100)+'px';
   }
+  requestAnimationFrame(()=>{
+    const sw=stage.offsetWidth||1;
+    const sh=stage.offsetHeight||sw*natH/natW;
+    matched.forEach(pt=>{
+      const el=document.createElement('div');
+      el.className='blink-marker';
+      el.style.left=(pt.x/100*sw)+'px';
+      el.style.top=(pt.y/100*sh)+'px';
+      el.dataset.ox=pt.x;
+      el.dataset.oy=pt.y;
+      stage.appendChild(el);
+      _bMarkers.push(el);
+    });
+    // マーカー範囲の中心へスクロール
+    wrap.scrollTo({left:((minX+bw/2)/100)*sw-cw/2, top:((minY+bh/2)/100)*sh-ch/2, behavior:'smooth'});
+  });
 }
 function onFpCardClick(card,sym){
   document.querySelectorAll('.fp-card.blink-active').forEach(c=>c.classList.remove('blink-active'));
