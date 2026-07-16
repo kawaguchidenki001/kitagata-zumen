@@ -192,18 +192,22 @@ main{flex:1;padding:20px 16px;max-width:960px;width:100%;margin:0 auto;}
 .img-wrap.panning{cursor:grabbing!important;}
 .img-wrap.panning img{pointer-events:none;}
 @media(max-width:820px){
+  .vo-top{height:38px;}
+  .vo-title{font-size:15px;}
   .vo-body{flex-direction:column;}
   .vo-draw{flex:1 1 auto;min-height:0;}
-  /* 写真パネルは下部固定・2段×横2〜3個のグリッド */
-  #fxPanel{position:static;transform:none;width:100%;flex:0 0 auto;height:288px;min-height:0;
+  /* 写真パネルは下部固定・枚数に応じたグリッド（高さは行数ぶんだけ） */
+  #fxPanel{position:static;transform:none;width:100%;flex:0 0 auto;height:auto;min-height:0;
     border-left:0;border-top:2px solid var(--border);box-shadow:none;}
   #fxToggle{display:none;}
-  .fp-head{padding:6px 10px 5px;}
-  .fp-list{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:7px;padding:8px;}
+  .fp-head{display:flex;align-items:baseline;gap:10px;padding:5px 10px 4px;}
+  .fp-head-s{margin-top:0;margin-left:auto;font-size:10px;text-align:right;}
+  .fp-list{flex:0 0 auto;overflow:visible;gap:7px;padding:8px;grid-template-columns:repeat(2,1fr);}
+  .fp-list[data-n="3"],.fp-list[data-n="5"],.fp-list[data-n="6"]{grid-template-columns:repeat(3,1fr);}
   .fp-card-head{padding:4px 6px;gap:5px;}
   .fp-sym{font-size:10px;padding:2px 5px;min-width:auto;}
   .fp-model{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal;}
-  .fp-color{display:none;}
+  .fp-color{display:block;font-size:8.5px;margin-top:1px;}
   .fp-name{display:none;}
   .fp-imgbtn{height:62px;padding:3px;}
   .fp-foot{font-size:9px;padding:3px 6px;}
@@ -501,6 +505,7 @@ function renderFxPanel(bldg, room){
   const sub =document.getElementById('fpSub');
   const badge=document.getElementById('fxToggleBadge');
   list.innerHTML='';
+  list.dataset.n=String(items.length);
   if(!items.length){
     list.innerHTML='<div class="fp-empty">器具データなし</div>';
     sub.textContent='改修器具データなし';
