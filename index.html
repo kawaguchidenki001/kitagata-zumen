@@ -626,7 +626,7 @@ function renderFxPanel(dwg, bldg, room){
     const places=it.places.join(' / ');
     let imgHtml;
     if(ph){
-      const enc=encodeURIComponent(it.sym);
+      const enc=encodeURIComponent(it.sym.toLowerCase());
       const photoBtn='<button class="fp-imgbtn" onclick="openFxLB('+JSON.stringify(it.sym)+')">'
         +'<img src="photos/'+enc+'.jpg" alt="'+it.sym+'" loading="lazy">'
         +'<span class="fp-zoom">🔍</span></button>';
@@ -659,7 +659,7 @@ function renderKishu(bldg,room){
   if(!gs.length) return '';
   let h='<div class="ks-sec"><div class="ks-head">器具種類（写真区分）</div>';
   gs.forEach(g=>{
-    const enc=encodeURIComponent(g.s);
+    const enc=encodeURIComponent(g.s.toLowerCase());
     const img = PHOTO_MAP[g.s]
       ? '<button class="ks-imgbtn" onclick="openFxLB('+JSON.stringify(g.s)+')"><img src="photos/'+enc+'.jpg" alt="'+g.c+'" loading="lazy"><span class="fp-zoom">🔍</span></button>'
       : '<div class="ks-nophoto">📷 なし</div>';
@@ -670,7 +670,7 @@ function renderKishu(bldg,room){
 function toggleFxPanel(){document.getElementById('fxPanel').classList.toggle('open');}
 function openFxLB(sym){
   document.getElementById('flbTitle').textContent=sym+(MODELS_MAP[sym]?'  '+MODELS_MAP[sym]:'');
-  document.getElementById('flbBody').innerHTML='<img src="photos/'+encodeURIComponent(sym)+'.jpg" alt="'+sym+'">';
+  document.getElementById('flbBody').innerHTML='<img src="photos/'+encodeURIComponent(sym.toLowerCase())+'.jpg" alt="'+sym+'">';
   document.getElementById('fxLB').classList.add('show');
 }
 function closeFxLB(){
