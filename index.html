@@ -76,7 +76,7 @@ main{flex:1;padding:20px 16px;max-width:960px;width:100%;margin:0 auto;}
   white-space:nowrap;flex-shrink:0;}
 .vo-img{flex:1;position:relative;min-height:0;overflow:hidden;}
 .img-wrap{width:100%;height:100%;overflow:auto;-webkit-overflow-scrolling:touch;
-  display:flex;align-items:flex-start;justify-content:center;cursor:crosshair;}
+  display:flex;align-items:flex-start;justify-content:center;cursor:grab;}
 #imgStage{position:relative;flex-shrink:0;}
 #mainImg{display:block;height:auto;max-width:none;width:100%;user-select:none;-webkit-user-drag:none;}
 .img-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
@@ -192,10 +192,11 @@ main{flex:1;padding:20px 16px;max-width:960px;width:100%;margin:0 auto;}
 .img-wrap.panning{cursor:grabbing!important;}
 .img-wrap.panning img{pointer-events:none;}
 @media(max-width:820px){
-  #fxPanel{position:absolute;right:0;top:0;bottom:0;transform:translateX(101%);
-    box-shadow:-6px 0 24px rgba(0,0,0,.5);width:min(340px,88vw);}
-  #fxPanel.open{transform:translateX(0);}
-  #fxToggle{display:flex;}
+  .vo-body{flex-direction:column;}
+  .vo-draw{flex:1 1 auto;min-height:0;}
+  #fxPanel{position:static;transform:none;width:100%;flex:0 0 44%;min-height:0;
+    border-left:0;border-top:2px solid var(--border);box-shadow:none;}
+  #fxToggle{display:none;}
 }
 
 /* ── 点滅マーカー ── */
@@ -502,13 +503,13 @@ window.loadDrawing=function(){
   renderFxPanel(curBldg, curRoom);
 };
 
-// 右クリックドラッグでパン (PC)
+// 左/右クリックドラッグでパン (PC)
 (function(){
   const wrap=$('imgWrap');
   let panning=false,panStartX=0,panStartY=0,panSL=0,panST=0,moved=false;
   wrap.addEventListener('contextmenu',e=>{ if(moved) e.preventDefault(); });
   wrap.addEventListener('mousedown',e=>{
-    if(e.button!==2) return;
+    if(e.button!==0 && e.button!==2) return;
     panning=true; moved=false;
     panStartX=e.clientX; panStartY=e.clientY;
     panSL=wrap.scrollLeft; panST=wrap.scrollTop;
@@ -523,7 +524,7 @@ window.loadDrawing=function(){
     wrap.scrollTop=panST-dy;
   });
   window.addEventListener('mouseup',e=>{
-    if(e.button!==2) return;
+    if(!panning) return;
     panning=false;
     wrap.classList.remove('panning');
     setTimeout(()=>{moved=false;},50);
