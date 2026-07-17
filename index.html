@@ -41,13 +41,39 @@ main{flex:1;padding:20px 16px;max-width:960px;width:100%;margin:0 auto;}
   padding:20px 16px 15px;cursor:pointer;transition:border-color .15s,background .15s,transform .1s;}
 .building-card:hover{border-color:var(--accent);background:var(--panel2);}
 .building-card:active{transform:scale(.97);}
-.bc-name{font-size:21px;font-weight:900;color:var(--accent);letter-spacing:.08em;margin-bottom:5px;}
-/* A棟系=青 / S棟系=オレンジ の色分け */
-.building-card.a-b{border-color:rgba(43,127,255,.5);}
-.building-card.a-b:hover{border-color:var(--accent);}
-.building-card.s-b{border-color:rgba(255,159,67,.5);}
-.building-card.s-b .bc-name{color:#ffa94d;}
-.building-card.s-b:hover{border-color:#ffa94d;}
+.bc-name{font-size:22px;font-weight:900;color:var(--accent);letter-spacing:.08em;margin-bottom:5px;}
+/* A棟系=青 / S棟系=オレンジ の色分け（背景・枠・左帯で明確化） */
+.building-grid+.building-grid{margin-top:12px;}
+.building-card{position:relative;overflow:hidden;padding-left:22px;}
+.building-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:8px;}
+.building-card.a-b{border-color:rgba(43,127,255,.55);background:linear-gradient(180deg,rgba(43,127,255,.12),rgba(43,127,255,.04));}
+.building-card.a-b::before{background:#2b7fff;}
+.building-card.a-b .bc-name{color:#5fa2ff;}
+.building-card.a-b:hover{border-color:#2b7fff;background:rgba(43,127,255,.18);}
+.building-card.s-b{border-color:rgba(255,150,60,.55);background:linear-gradient(180deg,rgba(255,150,60,.12),rgba(255,150,60,.04));}
+.building-card.s-b::before{background:#ff963c;}
+.building-card.s-b .bc-name{color:#ffab5e;}
+.building-card.s-b:hover{border-color:#ff963c;background:rgba(255,150,60,.18);}
+.grp-a{margin-bottom:14px;}
+.grp-tag{font-size:11px;font-weight:800;letter-spacing:.1em;margin:0 0 7px 2px;}
+.grp-a>.grp-tag{color:#5fa2ff;}
+.grp-s>.grp-tag{color:#ffab5e;}
+/* 空家ボタン（3段目） */
+.vacant-row{margin-top:18px;}
+.vacant-btn{width:100%;max-width:360px;display:flex;align-items:center;justify-content:center;gap:10px;
+  background:linear-gradient(135deg,#1f6b3a,#2fa35a);border:1px solid #37c46f;border-radius:var(--r);
+  color:#fff;font-family:inherit;font-size:16px;font-weight:900;letter-spacing:.06em;padding:16px 20px;
+  cursor:pointer;transition:filter .15s,transform .1s;box-shadow:0 3px 14px rgba(47,163,90,.35);}
+.vacant-btn:hover{filter:brightness(1.12);}
+.vacant-btn:active{transform:scale(.98);}
+.vacant-btn .v-count{background:rgba(255,255,255,.9);color:#1f6b3a;font-size:13px;font-weight:900;
+  border-radius:100px;padding:1px 10px;}
+.vacant-btn.exit{background:linear-gradient(135deg,#2a3a4f,#3a4d68);border-color:var(--border);
+  box-shadow:none;font-size:14px;}
+.building-card.vac-card::after{content:"空家";position:absolute;top:8px;right:10px;
+  background:#2fa35a;color:#fff;font-size:10px;font-weight:800;border-radius:100px;padding:2px 9px;}
+.vacant-badge{display:inline-block;background:#2fa35a;color:#fff;font-size:11px;font-weight:800;
+  border-radius:100px;padding:2px 10px;margin-left:8px;vertical-align:2px;letter-spacing:.04em;}
 .bc-count{font-size:12px;color:var(--muted);}
 .floor-header,.room-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;}
 .floor-tag,.room-building-tag{font-size:13px;font-weight:700;color:var(--accent);}
@@ -252,8 +278,10 @@ main{flex:1;padding:20px 16px;max-width:960px;width:100%;margin:0 auto;}
 <nav id="breadcrumb"></nav>
 <main>
   <div id="sBuilding" class="screen active">
-    <div class="sec-label">棟を選択</div>
-    <div class="building-grid" id="buildingGrid"></div>
+    <div class="sec-label" id="bldgSecLabel">棟を選択</div>
+    <div class="grp-a"><div class="grp-tag">A棟</div><div class="building-grid" id="buildingGridA"></div></div>
+    <div class="grp-s"><div class="grp-tag">S棟</div><div class="building-grid" id="buildingGridS"></div></div>
+    <div class="vacant-row" id="vacantRow"></div>
   </div>
   <div id="sFloor" class="screen">
     <div class="floor-header">
@@ -317,29 +345,64 @@ const DATA = {"structure":{"A1棟":{"1":["101","102","103","104","105","106","10
 const STRUCT = DATA.structure;
 const DRAWINGS = DATA.drawings;
 const ORDER = ['A1棟','A2棟','A4棟','S1棟','S2棟','S3棟','S4棟'];
+const VACANT={"A1棟":["211","408","610","701","809"],"A4棟":["504","803","807"],"S1棟":["301","601","602","703"],"S2棟":["407","614","622","907"],"S3棟":["204","208","303","515","615","701","712","715","811","815"],"S4棟":["210","211","212","213","310","311","312","406","509","512","609","705","707","710","813","911","914","1006"]};
 let curBldg=null, curFloor=null, curRoom=null, zoomPct=100, hintTimer=null;
+let vacantMode=false;
 let flatRooms=[], curIdx=-1;
 const ZOOM_MIN=10,ZOOM_MAX=500,STEP_BTN=25,STEP_WHEEL=10;
 const $=id=>document.getElementById(id);
 function buildFlat(bldg){
   flatRooms=[];
   const floors=STRUCT[bldg];
+  if(vacantMode){
+    const floorOf={};
+    Object.keys(floors).forEach(fl=>floors[fl].forEach(r=>floorOf[r]=Number(fl)));
+    (VACANT[bldg]||[]).filter(r=>floorOf[r]!=null)
+      .sort((a,b)=>(floorOf[a]-floorOf[b])||(Number(a)-Number(b)))
+      .forEach(r=>flatRooms.push({bldg,floor:floorOf[r],room:r}));
+    return;
+  }
   Object.keys(floors).map(Number).sort((a,b)=>a-b).forEach(fl=>{
     floors[fl].forEach(r=>flatRooms.push({bldg,floor:fl,room:r}));
   });
 }
 function renderBuildings(){
-  const g=$('buildingGrid');g.innerHTML='';
+  const gA=$('buildingGridA'), gS=$('buildingGridS');
+  gA.innerHTML=''; gS.innerHTML='';
+  $('bldgSecLabel').textContent = vacantMode ? '空家のある棟を選択' : '棟を選択';
   ORDER.forEach(b=>{
     if(!STRUCT[b])return;
+    const isS=b.charAt(0)==='S';
+    const vac=VACANT[b]||[];
+    if(vacantMode && !vac.length) return;
     let total=0;Object.values(STRUCT[b]).forEach(a=>total+=a.length);
     const d=document.createElement('div');
-    d.className='building-card '+(b.charAt(0)==='S'?'s-b':'a-b');
-    d.innerHTML='<div class="bc-name">'+b+'</div><div class="bc-count">'+total+' 室</div>';
+    d.className='building-card '+(isS?'s-b':'a-b')+(vacantMode?' vac-card':'');
+    const sub = vacantMode
+      ? '空家 '+vac.length+' 室'
+      : (total+' 室'+(vac.length?'<span class="vacant-badge">空家 '+vac.length+'</span>':''));
+    d.innerHTML='<div class="bc-name">'+b+'</div><div class="bc-count">'+sub+'</div>';
     d.onclick=()=>selectBuilding(b);
-    g.appendChild(d);
+    (isS?gS:gA).appendChild(d);
   });
+  $('buildingGridA').parentElement.style.display = gA.children.length ? '' : 'none';
+  $('buildingGridS').parentElement.style.display = gS.children.length ? '' : 'none';
+  const vr=$('vacantRow'); vr.innerHTML='';
+  const vb=document.createElement('button');
+  if(vacantMode){
+    vb.className='vacant-btn exit';
+    vb.innerHTML='← 全棟表示に戻る';
+    vb.onclick=()=>exitVacant();
+  }else{
+    const t=Object.values(VACANT).reduce((s,a)=>s+a.length,0);
+    vb.className='vacant-btn';
+    vb.innerHTML='🏠 空家のみ表示 <span class="v-count">'+t+' 室</span>';
+    vb.onclick=()=>enterVacant();
+  }
+  vr.appendChild(vb);
 }
+function enterVacant(push=true){ vacantMode=true; renderBuildings(); showScreen('Building'); if(push)history.pushState({sc:'Vacant'},''); }
+function exitVacant(push=true){ vacantMode=false; renderBuildings(); showScreen('Building'); if(push)history.pushState({sc:'Building'},''); }
 function showScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   $('s'+name).classList.add('active');
@@ -347,6 +410,20 @@ function showScreen(name){
 }
 function selectBuilding(b, push=true){
   curBldg=b;buildFlat(b);
+  if(vacantMode){
+    const g=$('roomGrid');g.innerHTML='';
+    $('roomBldgTag').textContent=b+'  空家';
+    flatRooms.forEach(x=>{
+      const btn=document.createElement('button');
+      btn.className='room-btn';
+      btn.textContent=x.room;
+      btn.onclick=()=>selectRoom(x.room);
+      g.appendChild(btn);
+    });
+    showScreen('Room');
+    if(push)history.pushState({sc:'Room',b:b,vac:1},'');
+    return;
+  }
   $('floorBldgTag').textContent=b;
   const g=$('floorGrid');g.innerHTML='';
   const floors=STRUCT[b];
@@ -376,23 +453,32 @@ function selectFloor(fl, push=true){
 }
 function selectRoom(r, push=true){
   curRoom=r;
-  curIdx=flatRooms.findIndex(x=>x.floor===curFloor&&x.room===r);
+  curIdx=flatRooms.findIndex(x=>x.room===r);
+  if(curIdx>=0)curFloor=flatRooms[curIdx].floor;
   openViewer();loadDrawing();
-  if(push)history.pushState({sc:'Viewer',b:curBldg,fl:curFloor,r:r},'');
+  if(push)history.pushState({sc:'Viewer',b:curBldg,fl:curFloor,r:r,vac:vacantMode?1:0},'');
 }
 // ブラウザ/スマホの戻る・進むボタンで画面遷移
 function goHome(push=true){
+  vacantMode=false;
   $('viewerOverlay').classList.remove('show');
-  showScreen('Building');
+  renderBuildings();showScreen('Building');
   if(push)history.pushState({sc:'Building'},'');
 }
 window.addEventListener('popstate',e=>{
   const st=e.state||{sc:'Building'};
   $('viewerOverlay').classList.remove('show');
-  if(st.sc==='Floor'){selectBuilding(st.b,false);}
-  else if(st.sc==='Room'){selectBuilding(st.b,false);selectFloor(st.fl,false);}
-  else if(st.sc==='Viewer'){selectBuilding(st.b,false);selectFloor(st.fl,false);selectRoom(st.r,false);}
-  else{showScreen('Building');}
+  vacantMode = (st.sc==='Vacant') || !!st.vac;
+  renderBuildings();
+  if(st.sc==='Floor'){vacantMode=false;renderBuildings();selectBuilding(st.b,false);}
+  else if(st.sc==='Vacant'){showScreen('Building');}
+  else if(st.sc==='Room'&&st.vac){selectBuilding(st.b,false);}
+  else if(st.sc==='Room'){vacantMode=false;selectBuilding(st.b,false);selectFloor(st.fl,false);}
+  else if(st.sc==='Viewer'){
+    if(st.vac){selectBuilding(st.b,false);selectRoom(st.r,false);}
+    else{selectBuilding(st.b,false);selectFloor(st.fl,false);selectRoom(st.r,false);}
+  }
+  else{vacantMode=false;renderBuildings();showScreen('Building');}
 });
 history.replaceState({sc:'Building'},'');
 function loadDrawing(){
@@ -522,6 +608,11 @@ function renderBC(){
   const mk=(label,fn)=>{const s=document.createElement('span');s.textContent=label;s.className=fn?'bc-link':'bc-cur';if(fn)s.onclick=fn;return s;};
   const sep=()=>{const s=document.createElement('span');s.className='bc-sep';s.textContent='›';return s;};
   bc.appendChild(mk('棟一覧',()=>goHome()));
+  if(vacantMode){
+    bc.appendChild(sep());bc.appendChild(mk('空家',()=>enterVacant()));
+    if(active==='sRoom'){bc.appendChild(sep());bc.appendChild(mk(curBldg,null));}
+    return;
+  }
   if(active==='sFloor'){bc.appendChild(sep());bc.appendChild(mk(curBldg,null));}
   if(active==='sRoom'){bc.appendChild(sep());bc.appendChild(mk(curBldg,()=>selectBuilding(curBldg)));bc.appendChild(sep());bc.appendChild(mk(curFloor+'階',null));}
 }
