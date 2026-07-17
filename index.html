@@ -42,6 +42,12 @@ main{flex:1;padding:20px 16px;max-width:960px;width:100%;margin:0 auto;}
 .building-card:hover{border-color:var(--accent);background:var(--panel2);}
 .building-card:active{transform:scale(.97);}
 .bc-name{font-size:21px;font-weight:900;color:var(--accent);letter-spacing:.08em;margin-bottom:5px;}
+/* A棟系=青 / S棟系=オレンジ の色分け */
+.building-card.a-b{border-color:rgba(43,127,255,.5);}
+.building-card.a-b:hover{border-color:var(--accent);}
+.building-card.s-b{border-color:rgba(255,159,67,.5);}
+.building-card.s-b .bc-name{color:#ffa94d;}
+.building-card.s-b:hover{border-color:#ffa94d;}
 .bc-count{font-size:12px;color:var(--muted);}
 .floor-header,.room-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;}
 .floor-tag,.room-building-tag{font-size:13px;font-weight:700;color:var(--accent);}
@@ -328,7 +334,7 @@ function renderBuildings(){
     if(!STRUCT[b])return;
     let total=0;Object.values(STRUCT[b]).forEach(a=>total+=a.length);
     const d=document.createElement('div');
-    d.className='building-card';
+    d.className='building-card '+(b.charAt(0)==='S'?'s-b':'a-b');
     d.innerHTML='<div class="bc-name">'+b+'</div><div class="bc-count">'+total+' 室</div>';
     d.onclick=()=>selectBuilding(b);
     g.appendChild(d);
@@ -339,7 +345,7 @@ function showScreen(name){
   $('s'+name).classList.add('active');
   renderBC();window.scrollTo(0,0);
 }
-function selectBuilding(b){
+function selectBuilding(b, push=true){
   curBldg=b;buildFlat(b);
   $('floorBldgTag').textContent=b;
   const g=$('floorGrid');g.innerHTML='';
@@ -352,8 +358,9 @@ function selectBuilding(b){
     g.appendChild(btn);
   });
   showScreen('Floor');
+  if(push)history.pushState({sc:'Floor',b:b},'');
 }
-function selectFloor(fl){
+function selectFloor(fl, push=true){
   curFloor=fl;
   $('roomBldgTag').textContent=curBldg+'  '+fl+'階';
   const g=$('roomGrid');g.innerHTML='';
@@ -365,12 +372,29 @@ function selectFloor(fl){
     g.appendChild(btn);
   });
   showScreen('Room');
+  if(push)history.pushState({sc:'Room',b:curBldg,fl:fl},'');
 }
-function selectRoom(r){
+function selectRoom(r, push=true){
   curRoom=r;
   curIdx=flatRooms.findIndex(x=>x.floor===curFloor&&x.room===r);
   openViewer();loadDrawing();
+  if(push)history.pushState({sc:'Viewer',b:curBldg,fl:curFloor,r:r},'');
 }
+// ブラウザ/スマホの戻る・進むボタンで画面遷移
+function goHome(push=true){
+  $('viewerOverlay').classList.remove('show');
+  showScreen('Building');
+  if(push)history.pushState({sc:'Building'},'');
+}
+window.addEventListener('popstate',e=>{
+  const st=e.state||{sc:'Building'};
+  $('viewerOverlay').classList.remove('show');
+  if(st.sc==='Floor'){selectBuilding(st.b,false);}
+  else if(st.sc==='Room'){selectBuilding(st.b,false);selectFloor(st.fl,false);}
+  else if(st.sc==='Viewer'){selectBuilding(st.b,false);selectFloor(st.fl,false);selectRoom(st.r,false);}
+  else{showScreen('Building');}
+});
+history.replaceState({sc:'Building'},'');
 function loadDrawing(){
   const key=curBldg+'|'+curRoom;
   const dwg=DRAWINGS[key];
@@ -391,7 +415,10 @@ function loadDrawing(){
   img.src='images/'+encodeURIComponent(dwg)+'.png';
 }
 function openViewer(){$('viewerOverlay').classList.add('show');renderBC();}
-function closeViewer(){$('viewerOverlay').classList.remove('show');showScreen('Room');}
+function closeViewer(){
+  if(history.state&&history.state.sc==='Viewer'){history.back();return;}
+  $('viewerOverlay').classList.remove('show');showScreen('Room');
+}
 function updateNavUI(){
   const total=flatRooms.length;
   $('voCounter').textContent=(curIdx+1)+' / '+total;
@@ -399,8 +426,8 @@ function updateNavUI(){
   [$('btnPrev'),$('btnSidePrev')].forEach(b=>b.disabled=dp);
   [$('btnNext'),$('btnSideNext')].forEach(b=>b.disabled=dn);
 }
-function goPrev(){if(curIdx<=0)return;curIdx--;const x=flatRooms[curIdx];curFloor=x.floor;curRoom=x.room;loadDrawing();}
-function goNext(){if(curIdx>=flatRooms.length-1)return;curIdx++;const x=flatRooms[curIdx];curFloor=x.floor;curRoom=x.room;loadDrawing();}
+function goPrev(){if(curIdx<=0)return;curIdx--;const x=flatRooms[curIdx];curFloor=x.floor;curRoom=x.room;loadDrawing();history.replaceState({sc:'Viewer',b:curBldg,fl:curFloor,r:curRoom},'');}
+function goNext(){if(curIdx>=flatRooms.length-1)return;curIdx++;const x=flatRooms[curIdx];curFloor=x.floor;curRoom=x.room;loadDrawing();history.replaceState({sc:'Viewer',b:curBldg,fl:curFloor,r:curRoom},'');}
 function _refreshBMarkers(){
   if(!_bMarkers.length) return;
   const stage=document.getElementById('imgStage');
@@ -494,7 +521,7 @@ function renderBC(){
   bc.style.display='flex';bc.innerHTML='';
   const mk=(label,fn)=>{const s=document.createElement('span');s.textContent=label;s.className=fn?'bc-link':'bc-cur';if(fn)s.onclick=fn;return s;};
   const sep=()=>{const s=document.createElement('span');s.className='bc-sep';s.textContent='›';return s;};
-  bc.appendChild(mk('棟一覧',()=>showScreen('Building')));
+  bc.appendChild(mk('棟一覧',()=>goHome()));
   if(active==='sFloor'){bc.appendChild(sep());bc.appendChild(mk(curBldg,null));}
   if(active==='sRoom'){bc.appendChild(sep());bc.appendChild(mk(curBldg,()=>selectBuilding(curBldg)));bc.appendChild(sep());bc.appendChild(mk(curFloor+'階',null));}
 }
