@@ -33,7 +33,8 @@ header{height:var(--hdr);background:var(--panel);border-bottom:1px solid var(--b
 .bc-cur{color:var(--text);}
 main{flex:1;padding:20px 16px;max-width:960px;width:100%;margin:0 auto;}
 .screen{display:none;}
-.screen.active{display:block;}
+.screen.active{display:block;animation:screenIn .22s ease;}
+@keyframes screenIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
 .sec-label{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
   color:var(--muted);margin-bottom:14px;}
 .building-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;}
@@ -75,22 +76,42 @@ main{flex:1;padding:20px 16px;max-width:960px;width:100%;margin:0 auto;}
 .vacant-badge{display:inline-block;background:#2fa35a;color:#fff;font-size:11px;font-weight:800;
   border-radius:100px;padding:2px 10px;margin-left:8px;vertical-align:2px;letter-spacing:.04em;}
 .bc-count{font-size:12px;color:var(--muted);}
-.floor-header,.room-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;}
-.floor-tag,.room-building-tag{font-size:13px;font-weight:700;color:var(--accent);}
-.floor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;}
-.floor-btn{background:var(--panel);border:1px solid var(--border);border-radius:9px;
-  padding:18px 10px;cursor:pointer;text-align:center;transition:border-color .15s,background .15s,transform .1s;}
-.floor-btn:hover{border-color:var(--accent);background:var(--panel2);}
+.floor-header,.room-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap;}
+/* 系統色（A=青 / S=オレンジ / 空家=緑）を --sc で引き継ぐ */
+.ser-a{--sc:#2b7fff;--sc-soft:rgba(43,127,255,.14);--sc-line:rgba(43,127,255,.45);--sc-text:#5fa2ff;}
+.ser-s{--sc:#ff963c;--sc-soft:rgba(255,150,60,.14);--sc-line:rgba(255,150,60,.45);--sc-text:#ffab5e;}
+.ser-v{--sc:#2fa35a;--sc-soft:rgba(47,163,90,.16);--sc-line:rgba(55,196,111,.5);--sc-text:#5fd68f;}
+.hdr-chip{font-size:13px;font-weight:800;letter-spacing:.05em;color:var(--sc-text);
+  background:var(--sc-soft);border:1px solid var(--sc-line);border-radius:100px;padding:5px 16px;}
+.floor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(124px,1fr));gap:12px;}
+.floor-btn{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--sc-soft),transparent 55%),var(--panel);
+  border:1px solid var(--border);border-radius:12px;
+  padding:18px 10px 14px;cursor:pointer;text-align:center;
+  transition:border-color .15s,background .15s,transform .12s,box-shadow .15s;}
+.floor-btn::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--sc);opacity:.9;}
+.floor-btn:hover{border-color:var(--sc);transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.35);}
 .floor-btn:active{transform:scale(.96);}
-.floor-num{font-size:24px;font-weight:900;color:var(--accent);line-height:1;}
-.floor-unit{font-size:12px;color:var(--muted);margin-top:3px;}
-.floor-count{font-size:11px;color:var(--muted);margin-top:5px;}
-.room-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;}
-.room-btn{background:var(--panel);border:1px solid var(--border);border-radius:8px;
-  padding:14px 6px;font-size:15px;font-weight:700;color:var(--text);font-family:inherit;
-  cursor:pointer;text-align:center;transition:border-color .15s,background .15s,color .15s,transform .1s;}
-.room-btn:hover{border-color:var(--accent);background:var(--panel2);color:var(--accent);}
+.floor-num-row{display:flex;align-items:baseline;justify-content:center;gap:4px;}
+.floor-num{font-size:32px;font-weight:900;color:var(--sc-text);line-height:1;}
+.floor-unit{font-size:13px;color:var(--muted);font-weight:700;}
+.floor-count{font-size:11px;color:var(--muted);margin-top:8px;display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;}
+.fl-vac{background:rgba(47,163,90,.16);border:1px solid rgba(55,196,111,.5);color:#5fd68f;
+  font-size:10px;font-weight:800;border-radius:100px;padding:1px 8px;white-space:nowrap;}
+.room-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;}
+.room-btn{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--sc-soft),transparent 60%),var(--panel);
+  border:1px solid var(--border);border-radius:11px;
+  padding:18px 6px 15px;font-size:18px;font-weight:800;color:var(--text);font-family:inherit;
+  letter-spacing:.03em;cursor:pointer;text-align:center;
+  transition:border-color .15s,background .15s,color .15s,transform .12s,box-shadow .15s;}
+.room-btn::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--sc);opacity:.55;}
+.room-btn:hover{border-color:var(--sc);color:var(--sc-text);transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,.35);}
 .room-btn:active{transform:scale(.95);}
+/* 空家の部屋マーク */
+.room-btn.rb-vac{border-color:rgba(55,196,111,.45);}
+.room-btn.rb-vac::after{content:"";position:absolute;top:8px;right:9px;width:9px;height:9px;border-radius:50%;
+  background:#37c46f;box-shadow:0 0 6px rgba(55,196,111,.9);}
+.vac-legend{font-size:11.5px;color:#5fd68f;font-weight:700;display:flex;align-items:center;gap:5px;}
+.vac-legend::before{content:"";width:9px;height:9px;border-radius:50%;background:#37c46f;box-shadow:0 0 6px rgba(55,196,111,.9);}
 #viewerOverlay{position:fixed;left:0;right:0;bottom:0;top:var(--hdr);
   z-index:200;background:var(--bg);display:none;flex-direction:column;}
 #viewerOverlay.show{display:flex;}
@@ -408,11 +429,15 @@ function showScreen(name){
   $('s'+name).classList.add('active');
   renderBC();window.scrollTo(0,0);
 }
+function _serClass(b){ return vacantMode ? 'ser-v' : (b.charAt(0)==='S' ? 'ser-s' : 'ser-a'); }
 function selectBuilding(b, push=true){
   curBldg=b;buildFlat(b);
   if(vacantMode){
     const g=$('roomGrid');g.innerHTML='';
-    $('roomBldgTag').textContent=b+'  空家';
+    g.className='room-grid ser-v';
+    const tag=$('roomBldgTag');
+    tag.textContent=b+' 空家';
+    tag.className='room-building-tag hdr-chip ser-v';
     flatRooms.forEach(x=>{
       const btn=document.createElement('button');
       btn.className='room-btn';
@@ -424,13 +449,21 @@ function selectBuilding(b, push=true){
     if(push)history.pushState({sc:'Room',b:b,vac:1},'');
     return;
   }
-  $('floorBldgTag').textContent=b;
+  const ser=_serClass(b);
+  const tag=$('floorBldgTag');
+  tag.textContent=b;
+  tag.className='floor-tag hdr-chip '+ser;
   const g=$('floorGrid');g.innerHTML='';
+  g.className='floor-grid '+ser;
   const floors=STRUCT[b];
+  const vac=VACANT[b]||[];
   Object.keys(floors).map(Number).sort((a,b)=>a-b).forEach(fl=>{
+    const nVac=floors[fl].filter(r=>vac.includes(r)).length;
     const btn=document.createElement('div');
     btn.className='floor-btn';
-    btn.innerHTML='<div class="floor-num">'+fl+'</div><div class="floor-unit">階</div><div class="floor-count">'+floors[fl].length+' 室</div>';
+    btn.innerHTML='<div class="floor-num-row"><span class="floor-num">'+fl+'</span><span class="floor-unit">階</span></div>'
+      +'<div class="floor-count"><span>'+floors[fl].length+' 室</span>'
+      +(nVac?'<span class="fl-vac">空家 '+nVac+'</span>':'')+'</div>';
     btn.onclick=()=>selectFloor(fl);
     g.appendChild(btn);
   });
@@ -439,11 +472,22 @@ function selectBuilding(b, push=true){
 }
 function selectFloor(fl, push=true){
   curFloor=fl;
-  $('roomBldgTag').textContent=curBldg+'  '+fl+'階';
+  const ser=_serClass(curBldg);
+  const tag=$('roomBldgTag');
+  tag.textContent=curBldg+'  '+fl+'階';
+  tag.className='room-building-tag hdr-chip '+ser;
   const g=$('roomGrid');g.innerHTML='';
+  g.className='room-grid '+ser;
+  const vac=VACANT[curBldg]||[];
+  const hasVac=STRUCT[curBldg][fl].some(r=>vac.includes(r));
+  if(hasVac){
+    const lg=document.createElement('div');
+    lg.className='vac-legend';lg.style.gridColumn='1/-1';lg.textContent='＝ 空家';
+    g.appendChild(lg);
+  }
   STRUCT[curBldg][fl].forEach(r=>{
     const btn=document.createElement('button');
-    btn.className='room-btn';
+    btn.className='room-btn'+(vac.includes(r)?' rb-vac':'');
     btn.textContent=r;
     btn.onclick=()=>selectRoom(r);
     g.appendChild(btn);
