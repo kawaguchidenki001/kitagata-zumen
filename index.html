@@ -268,6 +268,15 @@ main{flex:1;padding:20px 16px;max-width:960px;width:100%;margin:0 auto;}
   .fp-excl-x{font-size:22px;}
   .fp-excl-label{font-size:8.5px;padding:1px 7px;}
   .fp-excl-badge{font-size:8.5px;padding:1px 6px;top:4px;right:4px;}
+  /* 下部バーを圧縮（はみ出し防止） */
+  .vo-bottom{gap:4px;padding:0 6px;}
+  .vb-nav-btn{padding:5px 8px;font-size:11px;}
+  .vb-zoom{gap:3px;}
+  .zb{width:26px;height:26px;font-size:13px;}
+  .zb.wide{width:auto;padding:0 6px;font-size:10px;}
+  #zoomLabel{min-width:34px;font-size:11px;}
+  .vb-save{padding:5px 7px;font-size:11px;}
+  .vb-sep{margin:0 1px;}
 }
 
 /* ── 点滅マーカー ── */
@@ -347,7 +356,8 @@ main{flex:1;padding:20px 16px;max-width:960px;width:100%;margin:0 auto;}
       <button class="zb wide" onclick="zoomActual()">1:1</button>
     </div>
     <div class="vb-sep"></div>
-    <button class="vb-save" onclick="downloadImg()">⬇ <span class="lbl">保存</span></button>
+    <button class="vb-save" onclick="saveRoomPDF()">⬇ PDF</button>
+    <button class="vb-save" onclick="saveRoomJPEG()">⬇ JPG</button>
       </div><!-- vo-bottom -->
     </div><!-- vo-draw -->
     <aside id="fxPanel">
@@ -642,7 +652,142 @@ document.addEventListener('keydown',e=>{
   if(e.key==='w'||e.key==='W'){e.preventDefault();zoomFitWidth();showHint('幅');}
   if(e.key==='1'){e.preventDefault();zoomActual();showHint('実寸');}
 });
-function downloadImg(){const img=$('mainImg');if(!img.src)return;const a=document.createElement('a');a.href=img.src;a.download=curBldg+'_'+curRoom+'.png';a.click();showToast('保存しました ✓');}
+// ── 部屋ページのPDF/JPEG保存（図面＋器具リストをA4縦1枚に合成） ──
+function _loadImg(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src;});}
+function _rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function _roomCropRect(img){
+  const dwg=DRAWINGS[curBldg+'|'+curRoom];
+  const pts=_roomPts(dwg);
+  const W=img.naturalWidth,H=img.naturalHeight;
+  if(!pts||!pts.length) return {sx:0,sy:0,sw:W,sh:H};
+  let a=100,b=0,c2=100,d=0;
+  pts.forEach(p=>{if(p.x<a)a=p.x;if(p.x>b)b=p.x;if(p.y<c2)c2=p.y;if(p.y>d)d=p.y;});
+  const px=Math.max(7,(b-a)*.3),py=Math.max(6,(d-c2)*.3);
+  a=Math.max(0,a-px);b=Math.min(100,b+px);c2=Math.max(0,c2-py);d=Math.min(100,d+py);
+  if(b-a<30){const m=(a+b)/2;a=Math.max(0,m-15);b=Math.min(100,m+15);}
+  if(d-c2<22){const m=(c2+d)/2;c2=Math.max(0,m-11);d=Math.min(100,m+11);}
+  return {sx:a/100*W,sy:c2/100*H,sw:(b-a)/100*W,sh:(d-c2)/100*H};
+}
+async function composeRoomSheet(){
+  const W=1240,H=1754,M=54;
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  const c=cv.getContext('2d');
+  c.fillStyle='#fff';c.fillRect(0,0,W,H);
+  const FONT='"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif';
+  // ヘッダー
+  c.fillStyle='#14243a';c.font='900 42px '+FONT;
+  c.fillText(curBldg+' '+curRoom+'号室',M,M+40);
+  c.font='500 20px '+FONT;c.fillStyle='#666';
+  const sub='県営北方住宅 室内照明LED化改修工事';
+  c.fillText(sub,W-M-c.measureText(sub).width,M+36);
+  c.strokeStyle='#14243a';c.lineWidth=3;
+  c.beginPath();c.moveTo(M,M+58);c.lineTo(W-M,M+58);c.stroke();
+  // 器具データ
+  const key=curBldg+'|'+curRoom;
+  const items=ROOM_FIXTURES[key]||[];
+  const exclSet=new Set(EXCLUDED_ROOMS[key]||[]);
+  const rows=Math.max(1,Math.ceil(items.length/3));
+  const cardH=rows>1?280:300;
+  const fxTop=H-M-rows*cardH-(rows-1)*16-34;
+  // 図面（自室範囲を切り抜き）
+  const img=$('mainImg');
+  const box={x:M,y:M+76,w:W-2*M,h:fxTop-(M+76)-26};
+  const r=_roomCropRect(img);
+  const sc=Math.min(box.w/r.sw,box.h/r.sh);
+  const dw=r.sw*sc,dh=r.sh*sc;
+  c.strokeStyle='#c5cedd';c.lineWidth=2;c.strokeRect(box.x,box.y,box.w,box.h);
+  c.drawImage(img,r.sx,r.sy,r.sw,r.sh,box.x+(box.w-dw)/2,box.y+(box.h-dh)/2,dw,dh);
+  // 器具リスト見出し
+  c.fillStyle='#14243a';c.font='800 22px '+FONT;
+  const qtyAll=items.reduce((s,i)=>s+i.p.reduce((t,pq)=>t+pq[1],0),0);
+  c.fillText('改修器具リスト　'+items.length+'種 / 計'+qtyAll+'台',M,fxTop-6);
+  // 写真ロード
+  const ph={};
+  await Promise.all(items.map(it=>_loadImg('photos/'+it.s.toLowerCase()+'.jpg').then(i=>ph[it.s]=i).catch(()=>{})));
+  // カード
+  const gap=16,cw=(W-2*M-gap*2)/3;
+  items.forEach((it,i)=>{
+    const col=i%3,row=(i/3)|0;
+    const x=M+col*(cw+gap),y=fxTop+14+row*(cardH+16);
+    const info=FIXTURE_INFO[it.s]||{};
+    const isEx=exclSet.has(it.s);
+    c.strokeStyle=isEx?'#d99':'#b8c2d4';c.lineWidth=2;
+    _rr(c,x,y,cw,cardH,10);c.stroke();
+    // 記号バッジ
+    c.fillStyle=isEx?'#a55':'#e23b3b';_rr(c,x+12,y+12,110,38,7);c.fill();
+    c.fillStyle='#fff';c.font='900 21px '+FONT;
+    c.fillText(it.s,x+12+55-c.measureText(it.s).width/2,y+12+27);
+    // 型番・色温度
+    c.fillStyle='#111';c.font='800 19px '+FONT;
+    c.fillText(info.model||'',x+132,y+28);
+    c.font='700 15px '+FONT;c.fillStyle=(info.color||'').indexOf('昼白色')===0?'#1668d9':'#c07a1f';
+    c.fillText(info.color||'',x+132,y+50);
+    // 名称・場所
+    c.fillStyle='#444';c.font='500 14px '+FONT;
+    c.fillText((info.name||'').slice(0,26),x+12,y+72);
+    const places=it.p.map(pq=>pq[0]+'×'+pq[1]).join(' ・ ');
+    c.fillStyle='#111';c.font='700 16px '+FONT;
+    c.fillText(places,x+12,y+96);
+    // 写真
+    const pb={x:x+12,y:y+108,w:cw-24,h:cardH-120};
+    if(ph[it.s]){
+      const im=ph[it.s];
+      const s2=Math.min(pb.w/im.naturalWidth,pb.h/im.naturalHeight);
+      c.drawImage(im,pb.x+(pb.w-im.naturalWidth*s2)/2,pb.y+(pb.h-im.naturalHeight*s2)/2,im.naturalWidth*s2,im.naturalHeight*s2);
+    }
+    if(isEx){
+      c.fillStyle='rgba(255,255,255,.55)';c.fillRect(x+2,y+2,cw-4,cardH-4);
+      c.fillStyle='#e23b3b';c.font='900 30px '+FONT;
+      const t='✕ 取替不要';
+      c.fillText(t,x+cw/2-c.measureText(t).width/2,y+cardH/2+10);
+    }
+  });
+  return cv;
+}
+function _dlBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
+async function saveRoomJPEG(){
+  if(!$('mainImg').naturalWidth){showToast('図面の読み込み中です');return;}
+  showToast('JPEGを作成中...');
+  const cv=await composeRoomSheet();
+  cv.toBlob(b=>{_dlBlob(b,curBldg+'_'+curRoom+'号室.jpg');showToast('JPEGを保存しました ✓');},'image/jpeg',0.92);
+}
+async function saveRoomPDF(){
+  if(!$('mainImg').naturalWidth){showToast('図面の読み込み中です');return;}
+  showToast('PDFを作成中...');
+  const cv=await composeRoomSheet();
+  const durl=cv.toDataURL('image/jpeg',0.92);
+  const bin=atob(durl.split(',')[1]);
+  const jpeg=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)jpeg[i]=bin.charCodeAt(i);
+  _dlBlob(new Blob([_jpegToPdf(jpeg,cv.width,cv.height)],{type:'application/pdf'}),curBldg+'_'+curRoom+'号室.pdf');
+  showToast('PDFを保存しました ✓');
+}
+// JPEG1枚をA4縦1ページに埋め込む最小PDFを生成
+function _jpegToPdf(jpeg,w,h){
+  const enc=s=>new TextEncoder().encode(s);
+  const pw=595.28,ph=841.89;
+  const parts=[];let off=0;const ofs=[];
+  const push=b=>{parts.push(b);off+=b.length;};
+  push(enc('%PDF-1.4\n'));
+  const obj=(n,body)=>{ofs[n]=off;push(enc(n+' 0 obj\n'+body+'\nendobj\n'));};
+  obj(1,'<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2,'<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  obj(3,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+pw+' '+ph+'] /Contents 4 0 R /Resources << /XObject << /Im1 5 0 R >> >> >>');
+  const ct='q '+pw+' 0 0 '+ph+' 0 0 cm /Im1 Do Q';
+  obj(4,'<< /Length '+ct.length+' >>\nstream\n'+ct+'\nendstream');
+  ofs[5]=off;
+  push(enc('5 0 obj\n<< /Type /XObject /Subtype /Image /Width '+w+' /Height '+h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+jpeg.length+' >>\nstream\n'));
+  push(jpeg);
+  push(enc('\nendstream\nendobj\n'));
+  const xref=off;
+  let x='xref\n0 6\n0000000000 65535 f \n';
+  for(let i=1;i<=5;i++)x+=String(ofs[i]).padStart(10,'0')+' 00000 n \n';
+  x+='trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
+  push(enc(x));
+  const out=new Uint8Array(off);let o=0;
+  for(const p of parts){out.set(p,o);o+=p.length;}
+  return out;
+}
 function renderBC(){
   const bc=$('breadcrumb');
   if($('viewerOverlay').classList.contains('show')){bc.style.display='none';return;}
