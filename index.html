@@ -136,7 +136,10 @@ body.map-full main{max-width:none;padding:12px 14px;}
 .ml-done{background:rgba(43,127,255,.16);border-color:rgba(43,127,255,.55);color:#5fa2ff;}
 .ml-note{font-size:11.5px;color:var(--muted);}
 .map-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px;background:#fff;
-  max-height:calc(100vh - var(--hdr) - 150px);}
+  max-height:calc(100vh - var(--hdr) - 150px);
+  touch-action:pan-x pan-y;cursor:grab;}
+.map-wrap.panning{cursor:grabbing;}
+#imgWrap{touch-action:pan-x pan-y;}
 .map-inner{position:relative;width:100%;}
 .map-img{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none;}
 .map-cell{position:absolute;cursor:pointer;border:1.5px solid transparent;border-radius:4px;
@@ -378,7 +381,7 @@ body.map-full main{max-width:none;padding:12px 14px;}
       <span class="ml-item ml-done">完了</span>
       <span class="ml-note">部屋をタップすると図面が開きます</span>
     </div>
-    <div class="map-wrap"><div class="map-inner" id="mapInner">
+    <div class="map-wrap" id="mapWrap"><div class="map-inner" id="mapInner">
       <img class="map-img" id="mapImg" src="" alt="住戸割付図">
       <div id="mapCells" style="position:absolute;inset:0;"></div>
     </div></div>
@@ -496,6 +499,11 @@ function renderBuildings(){
 let curMapBldg='A1棟';
 function openMap(push=true){ renderMap(curMapBldg); showScreen('Map'); if(push)history.pushState({sc:'Map',mb:curMapBldg},''); }
 function renderMap(b){
+  if(renderMap._last!==b){
+    $('mapInner').style.width='';
+    const w=$('mapWrap'); w.scrollLeft=0; w.scrollTop=0;
+    renderMap._last=b;
+  }
   curMapBldg=b;
   const tabs=$('mapTabs'); tabs.innerHTML='';
   ORDER.forEach(x=>{
@@ -977,6 +985,86 @@ window.loadDrawing=function(){
   _origLoadDwg.apply(this,arguments);
   renderFxPanel(curBldg, curRoom);
 };
+
+// 割付図: ホイール拡大縮小・左ドラッグパン (PC) / ピンチズーム (スマホ)
+(function(){
+  const wrap=$('mapWrap'), inner=$('mapInner');
+  if(!wrap) return;
+  const zNow=()=>inner.offsetWidth/Math.max(1,wrap.clientWidth)*100;
+  function setZ(pct,cx,cy){
+    pct=Math.max(100,Math.min(500,pct));
+    const pw=inner.offsetWidth||1, ph=inner.offsetHeight||1;
+    if(cx==null){cx=wrap.clientWidth/2;cy=wrap.clientHeight/2;}
+    const ax=(cx+wrap.scrollLeft)/pw, ay=(cy+wrap.scrollTop)/ph;
+    inner.style.width=(wrap.clientWidth*pct/100)+'px';
+    wrap.scrollLeft=ax*inner.offsetWidth-cx;
+    wrap.scrollTop=ay*inner.offsetHeight-cy;
+  }
+  wrap.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const r=wrap.getBoundingClientRect();
+    setZ(zNow()*(e.deltaY<0?1.15:0.87),e.clientX-r.left,e.clientY-r.top);
+  },{passive:false});
+  let panning=false,sx=0,sy=0,sl=0,st=0,moved=false;
+  wrap.addEventListener('mousedown',e=>{
+    if(e.button!==0) return;
+    panning=true;moved=false;sx=e.clientX;sy=e.clientY;sl=wrap.scrollLeft;st=wrap.scrollTop;
+    wrap.classList.add('panning');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!panning) return;
+    const dx=e.clientX-sx, dy=e.clientY-sy;
+    if(Math.abs(dx)>3||Math.abs(dy)>3) moved=true;
+    wrap.scrollLeft=sl-dx; wrap.scrollTop=st-dy;
+  });
+  window.addEventListener('mouseup',()=>{
+    if(!panning) return;
+    panning=false;wrap.classList.remove('panning');
+    setTimeout(()=>{moved=false;},50);
+  });
+  window.addEventListener('blur',()=>{panning=false;wrap.classList.remove('panning');});
+  wrap.addEventListener('click',e=>{if(moved){e.stopPropagation();e.preventDefault();}},true);
+  let pd=0,pz=100;
+  wrap.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){
+      pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      pz=zNow();
+      e.preventDefault();
+    }
+  },{passive:false});
+  wrap.addEventListener('touchmove',e=>{
+    if(e.touches.length===2&&pd>0){
+      e.preventDefault();
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      const r=wrap.getBoundingClientRect();
+      setZ(pz*d/pd,(e.touches[0].clientX+e.touches[1].clientX)/2-r.left,(e.touches[0].clientY+e.touches[1].clientY)/2-r.top);
+    }
+  },{passive:false});
+  wrap.addEventListener('touchend',e=>{if(e.touches.length<2)pd=0;});
+})();
+
+// 図面ビューア: ピンチズーム (スマホ)
+(function(){
+  const wrap=$('imgWrap');
+  let pd=0,pz=100;
+  wrap.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){
+      pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      pz=zoomPct;
+      e.preventDefault();
+    }
+  },{passive:false});
+  wrap.addEventListener('touchmove',e=>{
+    if(e.touches.length===2&&pd>0){
+      e.preventDefault();
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      const r=wrap.getBoundingClientRect();
+      applyZoom(pz*d/pd,(e.touches[0].clientX+e.touches[1].clientX)/2-r.left,(e.touches[0].clientY+e.touches[1].clientY)/2-r.top);
+    }
+  },{passive:false});
+  wrap.addEventListener('touchend',e=>{if(e.touches.length<2)pd=0;});
+})();
 
 // 左/右クリックドラッグでパン (PC)
 (function(){
